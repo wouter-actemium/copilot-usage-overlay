@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<title>Copilot Overlay</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #14161a; color: #e6e8eb; font: 12px/1.4 "Segoe UI", system-ui, sans-serif; user-select: none; overflow: hidden; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px 8px 14px; background: #1b1e24; border-bottom: 1px solid #262a32; -webkit-app-region: drag; }
+  header b { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #9aa1ab; }
+  .btns { display: flex; gap: 2px; -webkit-app-region: no-drag; }
+  .btn { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 6px; cursor: pointer; color: #8b9099; font-size: 14px; }
+  .btn:hover { background: #2a2e36; color: #fff; }
+  #close:hover { background: #da3633; }
+  .spin { animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  main { padding: 12px 14px; height: calc(100vh - 100px); overflow-y: auto; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+  .daily-dash { margin: 5px 0 2px; padding: 7px 9px; background: #1b1e24; }
+  .daily-head { display: flex; align-items: baseline; justify-content: space-between; }
+  .daily-head b { font-size: 21px; font-weight: 600; color: #e6e8eb; }
+  .daily-head span { color: #8b9099; font-size: 10px; }
+  .daily-bar { position: relative; height: 10px; margin: 6px 0 3px; overflow: hidden; border-radius: 5px; background: #30363d; }
+  .daily-bar i { position: absolute; top: 0; bottom: 0; }
+  #daily-used { left: 0; width: 0; background: #3fb950; }
+  #daily-hour { width: 0; background: repeating-linear-gradient(135deg, rgba(255,255,255,.46) 0 2px, rgba(255,255,255,.10) 2px 5px), #3fb950; box-shadow: inset 0 0 0 1px rgba(255,255,255,.22); }
+  .daily-label { display: flex; justify-content: space-between; color: #8b9099; font-size: 10px; }
+  .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 10px; }
+  .metric-grid div { padding: 6px 7px; background: #1b1e24; border-bottom: 2px solid #30363d; }
+  .metric-grid b { display: block; font-size: 16px; font-weight: 600; color: #e6e8eb; }
+  .metric-grid span { display: block; margin-top: 1px; color: #8b9099; font-size: 9px; text-transform: uppercase; letter-spacing: .06em; }
+  .forecast-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 8px 0 2px; }
+  .forecast-grid div { min-width: 0; padding: 5px 4px; background: #1b1e24; text-align: center; }
+  .forecast-grid b { display: block; overflow: hidden; color: #e6e8eb; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+  .forecast-grid span { display: block; margin-top: 1px; color: #8b9099; font-size: 8px; text-transform: uppercase; letter-spacing: .04em; }
+  .forecast-equation { margin: 3px 0 8px; color: #6e7681; font-size: 9px; text-align: center; }
+  #ideal { position: absolute; top: 0; bottom: 0; width: 2px; background: #e6e8eb; opacity: .85; }
+  nav { display: flex; background: #1b1e24; border-bottom: 1px solid #262a32; }
+  nav div { flex: 1; text-align: center; padding: 6px 0; cursor: pointer; color: #8b9099; border-bottom: 2px solid transparent; }
+  nav div:hover { color: #e6e8eb; }
+  nav .on { color: #e6e8eb; border-bottom-color: #2f81f7; }
+  .hidden { display: none; }
+  .kv { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #1f232a; }
+  .kv b { font-weight: 600; text-align: right; }
+  .note { margin-top: 10px; font-size: 10px; color: #6e7681; }
+  .big { font-size: 30px; font-weight: 600; letter-spacing: -.02em; }
+  .big small { font-size: 15px; font-weight: 400; color: #8b9099; }
+  .bar { position: relative; height: 8px; background: #262a32; border-radius: 4px; margin: 8px 0 5px; overflow: hidden; }
+  #fill { height: 100%; width: 0; border-radius: 4px; background: #3fb950; transition: width .4s, background .4s; }
+  .muted { color: #8b9099; }
+  .sec { display: flex; justify-content: space-between; align-items: baseline; margin-top: 14px; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #8b9099; }
+  .sec span:last-child:not(:first-child) { font-size: 12px; text-transform: none; letter-spacing: 0; color: #e6e8eb; font-weight: 600; }
+  #cal { display: grid; grid-template-rows: repeat(7, 12px); grid-auto-flow: column; grid-auto-columns: 12px; gap: 2px; margin-top: 8px; justify-content: center; }
+  #cal i { border-radius: 2px; background: #1f232a; }
+  #cal i:hover { outline: 1px solid #79b8ff; }
+  #cal i.future { visibility: hidden; }
+  .hchart { display: flex; align-items: flex-end; gap: 2px; height: 66px; margin-top: 8px; padding-bottom: 12px; }
+  #chart { display: flex; align-items: flex-end; gap: 2px; height: 66px; margin-top: 8px; padding-bottom: 12px; }
+  .col { position: relative; flex: 1; height: 100%; display: flex; align-items: flex-end; justify-content: center; }
+  .col i { display: block; width: 100%; background: #2f81f7; border-radius: 2px 2px 0 0; opacity: .85; }
+  .col.zero i { background: #30363d; }
+  .col:hover i { opacity: 1; background: #79b8ff; }
+  .col span { position: absolute; bottom: -12px; font-size: 9px; color: #6e7681; white-space: nowrap; }
+  #tip { position: fixed; display: none; padding: 3px 7px; background: #000; border: 1px solid #30363d; border-radius: 5px; font-size: 11px; white-space: nowrap; pointer-events: none; z-index: 9; }
+  #events { margin: 6px 0 0; padding: 0 4px 0 0; list-style: none; max-height: 96px; overflow-y: auto; }
+  #events li { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px solid #1f232a; }
+  #events li b { color: #58a6ff; font-weight: 600; }
+  #pace-chart-stats { height: 82px; margin: 10px 0 2px; }
+  #pace-chart-stats svg { display: block; width: 100%; height: 100%; overflow: visible; }
+  #pace-chart-stats .ideal-line { fill: none; stroke: #8b9099; stroke-width: 1.5; stroke-dasharray: 3 3; }
+  #pace-chart-stats .actual-line { fill: none; stroke: #58a6ff; stroke-width: 2; }
+  #pace-chart-stats .forecast-line { fill: none; stroke: #f0883e; stroke-width: 1.5; stroke-dasharray: 2 3; }
+  #pace-chart-stats .today-dot { fill: #58a6ff; stroke: #14161a; stroke-width: 2; }
+  #pace-chart-stats .axis { stroke: #30363d; stroke-width: 1; }
+  #pace-chart-stats text { fill: #6e7681; font: 9px "Segoe UI", system-ui, sans-serif; }
+  #pace-chart-stats .legend { fill: #8b9099; }
+  footer { position: fixed; bottom: 0; left: 0; right: 0; padding: 6px 14px; background: #14161a; font-size: 10px; display: flex; justify-content: space-between; }
+  #err { color: #f85149; }
+</style>
+</head>
+<body>
+<header>
+  <b>Copilot Overlay</b>
+  <div class="btns">
+    <div class="btn" id="refresh" title="Nu vernieuwen">⟳</div>
+    <div class="btn" id="close" title="Sluiten">✕</div>
+  </div>
+</header>
+<nav><div class="on" data-tab="live">Live</div><div data-tab="stats">Statistieken</div></nav>
+<main id="live">
+  <div class="big" id="big">–</div>
+  <div class="bar" title="Streepje = ideaal verbruik tot nu toe, verdeeld over werkdagen"><div id="fill"></div><div id="ideal"></div></div>
+  <div class="muted" id="pct"></div>
+  <div id="eta" style="margin-top:2px"></div>
+  <div class="sec"><span>Dagbudget</span><span id="daily-budget-label">–</span></div>
+  <div class="daily-dash">
+    <div class="daily-head"><b id="today-left">–</b><span>nog beschikbaar</span></div>
+    <div class="daily-bar"><i id="daily-used"></i><i id="daily-hour"></i></div>
+    <div class="daily-label"><span id="daily-used-label">– gebruikt</span><span id="daily-hour-label">– laatste uur</span></div>
+  </div>
+
+  <div class="metric-grid">
+    <div><b id="today">–</b><span>vandaag</span></div>
+    <div><b id="thisweek">–</b><span>week</span></div>
+    <div><b id="hour">–</b><span>uur</span></div>
+  </div>
+
+  <div class="sec" style="margin-top:12px"><span>8 uur</span></div>
+  <div id="chart"></div>
+
+  <div class="sec" style="margin-top:6px"><span>18 weken</span></div>
+  <div id="cal"></div>
+</main>
+<main id="stats" class="hidden">
+  <div class="sec" style="margin-top:0"><span>Verbruik</span></div>
+  <div class="kv"><span>Gemiddeld per gebruiksdag (alles)</span><b id="s-all">–</b></div>
+  <div class="kv"><span>Gemiddeld per gebruiksdag (7 dagen)</span><b id="s-week">–</b></div>
+  <div class="kv"><span>Totaal geregistreerd</span><b id="s-total">–</b></div>
+
+  <div class="sec"><span>Per week</span></div>
+  <div id="weeks"></div>
+
+  <div class="sec"><span>Verloop</span></div>
+  <div id="pace-chart-stats" aria-label="Werkelijk verbruik tegenover ideaal schema"></div>
+
+  <div class="forecast-grid">
+    <div><b id="f-left">–</b><span>resterend</span></div>
+    <div><b id="f-rate">–</b><span>tempo / dag</span></div>
+    <div><b id="f-days">–</b><span>werkdagen</span></div>
+    <div><b id="f-result">–</b><span>bij reset</span></div>
+  </div>
+  <div class="forecast-equation" id="f-equation">resterend ÷ tempo = forecast</div>
+
+  <div class="sec"><span>Drukste uren</span><span id="s-top"></span></div>
+  <div id="hours"></div>
+
+  <div class="sec"><span>Prognose</span></div>
+  <div class="kv"><span>Quota vol (100%)</span><b id="s-hit">–</b></div>
+  <div class="kv"><span>Verwacht bij reset</span><b id="s-proj">–</b></div>
+  <div class="kv"><span>Reset</span><b id="s-reset">–</b></div>
+  <div class="kv"><span>Ideaal tot nu toe (werkdagen)</span><b id="s-ideal">–</b></div>
+  <div class="kv"><span>Budget per werkdag om te landen</span><b id="s-budget">–</b></div>
+  <div class="note" id="s-note"></div>
+</main>
+<footer><span class="muted" id="upd"></span><span id="err"></span></footer>
+<div id="tip"></div>
+<script>
+const { ipcRenderer } = require('electron');
+const $ = (id) => document.getElementById(id);
+const pad = (n) => String(n).padStart(2, '0');
+const fmt = (n) => n.toLocaleString('nl-NL');
+const hhmm = (t) => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const sum = (events, from, to) => events.filter(([t]) => t >= from && t < to).reduce((s, [, d]) => s + d, 0);
+const key = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const day = (t) => new Date(t).toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' });
+const dec = (n, p = 1) => n.toFixed(p).replace('.', ',');
+const dur = (ms) => { const h = Math.floor(ms / 3600000); return h >= 24 ? `${Math.floor(h / 24)}d ${h % 24}u` : `${h}u`; };
+const weekStart = (d) => { const m = new Date(d); m.setHours(0, 0, 0, 0); m.setDate(m.getDate() - ((m.getDay() + 6) % 7)); return m; };
+const rangeSum = (daily, from, days) => Array.from({ length: days }, (_, i) => { const x = new Date(from); x.setDate(x.getDate() + i); return daily[key(x)] || 0; }).reduce((a, b) => a + b, 0);
+const el = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+
+$('close').onclick = () => window.close();
+document.querySelectorAll('nav div').forEach((t) => {
+  t.onclick = () => {
+    document.querySelectorAll('nav div').forEach((x) => x.classList.toggle('on', x === t));
+    $('live').classList.toggle('hidden', t.dataset.tab !== 'live');
+    $('stats').classList.toggle('hidden', t.dataset.tab !== 'stats');
+    tip.style.display = 'none';
+  };
+});
+$('refresh').onclick = () => {
+  $('refresh').classList.add('spin');
+  ipcRenderer.send('refresh');
+};
+
+const tip = $('tip');
+let quota = 0;
+const pct = (v) => (quota ? ` · ${dec((v / quota) * 100, 2)}%` : '');
+function showTip(e, text) {
+  tip.textContent = text;
+  tip.style.display = 'block';
+  tip.style.left = `${Math.max(4, Math.min(e.clientX - tip.offsetWidth / 2, window.innerWidth - tip.offsetWidth - 4))}px`;
+  tip.style.top = `${Math.max(e.clientY - 30, 4)}px`;
+}
+
+function renderChart(events) {
+  const HALF = 30 * 60 * 1000, N = 16;
+  const end = Math.ceil(Date.now() / HALF) * HALF;
+  const starts = Array.from({ length: N }, (_, i) => end - (N - i) * HALF);
+  const sums = starts.map((s) => sum(events, s, s + HALF));
+  const max = Math.max(1, ...sums);
+
+  $('chart').replaceChildren(...starts.map((s, i) => {
+    const bar = el('i');
+    bar.style.height = `${Math.max(2, (sums[i] / max) * 50)}px`;
+    const col = el('div', { className: `col${sums[i] ? '' : ' zero'}` }, bar);
+    if (new Date(s).getMinutes() === 0 && i % 2 === 0) col.append(el('span', { textContent: pad(new Date(s).getHours()) }));
+    const text = `${hhmm(s)}–${hhmm(s + HALF)}: ${fmt(sums[i])} credits${pct(sums[i])}`;
+    col.onmousemove = (e) => showTip(e, text);
+    col.onmouseleave = () => { tip.style.display = 'none'; };
+    return col;
+  }));
+}
+
+function renderCalendar(daily) {
+  const WEEKS = 18;
+  const key = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const start = new Date(today);
+  start.setDate(today.getDate() - ((today.getDay() + 6) % 7) - (WEEKS - 1) * 7);
+  const max = Math.max(1, ...Object.values(daily));
+  const shades = ['#0e4429', '#006d32', '#26a641', '#39d353'];
+
+  const cells = [];
+  for (let i = 0; i < WEEKS * 7; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const v = daily[key(d)] || 0;
+    const c = el('i');
+    if (d > today) c.className = 'future';
+    else {
+      if (v) c.style.background = shades[Math.min(3, Math.floor((v / max) * 4 - 0.001))];
+      const text = `${d.toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' })}: ${fmt(v)} credits${pct(v)}`;
+      c.onmousemove = (e) => showTip(e, text);
+      c.onmouseleave = () => { tip.style.display = 'none'; };
+    }
+    cells.push(c);
+  }
+  $('cal').replaceChildren(...cells);
+}
+
+function renderPaceChart(s, st, targetId) {
+  const chart = $(targetId);
+  if (s.unlimited || !s.entitlement || !st.reset) { chart.replaceChildren(); return; }
+
+  const end = new Date(st.reset);
+  const endDate = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+  const startDate = new Date(endDate.getFullYear(), endDate.getMonth() - 1, endDate.getDate());
+  const days = [];
+  for (const d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) days.push(new Date(d));
+  const workdays = days.filter((d) => d.getDay() > 0 && d.getDay() < 6).length;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const visibleDays = days.filter((d) => d <= today);
+  const actual = [];
+  let running = 0;
+  for (const d of visibleDays) {
+    running += st.daily[key(d)] || 0;
+    actual.push([d, running]);
+  }
+  if (!actual.length) { chart.replaceChildren(); return; }
+
+  const width = 272, height = 82, left = 5, right = 5, top = 17, bottom = 15;
+  const max = Math.max(s.entitlement, st.projected || 0, ...actual.map(([, value]) => value), 1);
+  const x = (d) => left + ((d - startDate) / (endDate - startDate)) * (width - left - right);
+  const y = (value) => top + (1 - value / max) * (height - top - bottom);
+  let idealWorkdays = 0;
+  const idealPoints = days.map((d) => {
+    if (d.getDay() > 0 && d.getDay() < 6) idealWorkdays++;
+    return `${x(d)},${y(s.entitlement * idealWorkdays / workdays)}`;
+  });
+  const actualPoints = actual.map(([d, value]) => `${x(d)},${y(value)}`).join(' ');
+  const current = actual[actual.length - 1];
+  const forecastAt = st.hitAt && st.hitAt < st.reset ? st.hitAt : st.reset;
+  const forecastValue = st.hitAt && st.hitAt < st.reset ? s.entitlement : st.projected;
+  const forecastPoints = st.projected === null ? '' : `${x(current[0])},${y(current[1])} ${x(forecastAt)},${y(forecastValue)}`;
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.setAttribute('role', 'img');
+  const svgEl = (tag, attrs, text) => {
+    const node = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    Object.entries(attrs).forEach(([name, value]) => node.setAttribute(name, value));
+    if (text) node.textContent = text;
+    return node;
+  };
+  svg.append(
+    svgEl('line', { class: 'axis', x1: left, x2: width - right, y1: y(s.entitlement), y2: y(s.entitlement) }),
+    svgEl('polyline', { class: 'ideal-line', points: idealPoints.join(' ') }),
+    ...(forecastPoints ? [svgEl('polyline', { class: 'forecast-line', points: forecastPoints })] : []),
+    svgEl('polyline', { class: 'actual-line', points: actualPoints }),
+    svgEl('circle', { class: 'today-dot', cx: x(current[0]), cy: y(current[1]), r: 3 }),
+    svgEl('text', { class: 'legend', x: left, y: 9 }, 'werkelijk'),
+    svgEl('text', { class: 'legend', x: 55, y: 9 }, 'ideaal'),
+    ...(forecastPoints ? [svgEl('text', { class: 'legend', x: 88, y: 9 }, 'forecast')] : []),
+    svgEl('text', { x: width - right, y: y(s.entitlement) - 3, 'text-anchor': 'end' }, 'quota'),
+    svgEl('text', { x: left, y: height - 1 }, `${startDate.getDate()} ${startDate.toLocaleDateString('nl-NL', { month: 'short' })}`),
+    svgEl('text', { x: width - right, y: height - 1, 'text-anchor': 'end' }, `${endDate.getDate()} ${endDate.toLocaleDateString('nl-NL', { month: 'short' })}`),
+  );
+  chart.replaceChildren(svg);
+}
+
+function renderLanding(s, st, hourSum) {
+  const eta = $('eta');
+  const hide = s.unlimited || !s.entitlement;
+  $('ideal').style.display = hide ? 'none' : '';
+  if (hide) {
+    eta.textContent = '';
+    $('today-left').textContent = '–';
+    $('daily-budget-label').textContent = '–';
+    $('daily-used-label').textContent = '– gebruikt';
+    $('daily-hour-label').textContent = '– laatste uur';
+    $('daily-used').style.width = '0';
+    $('daily-hour').style.width = '0';
+    return;
+  }
+
+  $('ideal').style.left = `${((st.ideal / s.entitlement) * 100).toFixed(2)}%`;
+
+  if (s.used >= s.entitlement) { eta.textContent = 'Quota is op'; eta.style.color = '#f85149'; }
+  else if (st.hitAt === null) { eta.textContent = 'Uitputting: te weinig data'; eta.style.color = ''; }
+  else if (st.hitAt < st.reset) { eta.textContent = `Quota op over ${dur(st.hitAt - Date.now())} · ${day(st.hitAt)} ${hhmm(st.hitAt)}`; eta.style.color = '#f85149'; }
+  else { eta.textContent = `Quota haalt reset · ${day(st.reset)}`; eta.style.color = '#3fb950'; }
+
+  const todayUsed = st.daily[key(new Date())] || 0;
+  const todayLeft = Math.round(st.budgetPerDay - todayUsed);
+  const budget = Math.max(1, st.budgetPerDay);
+  const usedPct = Math.min(100, (todayUsed / budget) * 100);
+  const hourPct = Math.min(usedPct, (hourSum / budget) * 100);
+  $('today-left').textContent = `${fmt(Math.max(0, todayLeft))}`;
+  $('today-left').style.color = todayLeft > 0 ? '#e6e8eb' : '#f85149';
+  $('daily-budget-label').textContent = `${fmt(Math.round(st.budgetPerDay))} credits`;
+  $('daily-used').style.width = `${usedPct}%`;
+  $('daily-used').style.background = todayUsed > budget ? '#f85149' : '#3fb950';
+  $('daily-hour').style.left = `${Math.max(0, usedPct - hourPct)}%`;
+  $('daily-hour').style.width = `${hourPct}%`;
+  $('daily-used-label').textContent = `${fmt(Math.round(todayUsed))} gebruikt`;
+  $('daily-hour-label').textContent = `+${fmt(Math.round(hourSum))} laatste uur`;
+}
+
+function renderPeriods(daily) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const monday = weekStart(today);
+  const todayV = daily[key(today)] || 0;
+  const weekV = rangeSum(daily, monday, 7);
+  $('today').textContent = `${fmt(todayV)}${pct(todayV)}`;
+  $('thisweek').textContent = `${fmt(weekV)}${pct(weekV)}`;
+
+  $('weeks').replaceChildren(...[0, 1, 2, 3].map((k) => {
+    const from = new Date(monday); from.setDate(from.getDate() - 7 * k);
+    const v = rangeSum(daily, from, 7);
+    const label = k === 0 ? 'Deze week' : k === 1 ? 'Vorige week' : `Week van ${from.getDate()} ${from.toLocaleDateString('nl-NL', { month: 'short' })}`;
+    return el('div', { className: 'kv' }, el('span', { textContent: label }), el('b', { textContent: `${fmt(v)}${pct(v)}` }));
+  }));
+}
+
+function renderStats(s, st) {
+  $('s-all').textContent = `${dec(st.avgAll)} / werkdag${pct(st.avgAll)}`;
+  $('s-week').textContent = `${dec(st.avgWeek)} / werkdag${pct(st.avgWeek)}`;
+  $('s-total').textContent = `${fmt(st.total)}${pct(st.total)}`;
+  $('s-reset').textContent = day(st.reset);
+  $('s-ideal').textContent = s.unlimited ? '–' : `${fmt(Math.round(st.ideal))}${pct(st.ideal)}`;
+  $('s-budget').textContent = s.unlimited ? '–' : `${fmt(Math.round(st.budgetPerDay))}${pct(st.budgetPerDay)}`;
+  if (s.unlimited || !s.entitlement) {
+    $('f-left').textContent = $('f-rate').textContent = $('f-days').textContent = $('f-result').textContent = '–';
+    $('f-equation').textContent = 'geen quota-forecast';
+  } else {
+    const remaining = Math.max(0, s.entitlement - s.used);
+    $('f-left').textContent = fmt(Math.round(remaining));
+    $('f-rate').textContent = fmt(Math.round(st.avgWeek));
+    $('f-days').textContent = dec(st.workdaysLeft, 1);
+    $('f-result').textContent = st.projected === null ? '–' : fmt(Math.round(st.projected));
+    $('f-result').style.color = st.projected >= s.entitlement ? '#f85149' : '#3fb950';
+    $('f-equation').textContent = st.avgWeek > 0
+      ? `${fmt(Math.round(remaining))} ÷ ${fmt(Math.round(st.avgWeek))} = ${dec(remaining / st.avgWeek, 1)} werkdagen`
+      : 'nog geen tempo beschikbaar';
+  }
+
+  const max = Math.max(1, ...st.hours);
+  $('hours').replaceChildren(el('div', { id: 'hchart', className: 'hchart' }, ...st.hours.map((v, h) => {
+    const bar = el('i');
+    bar.style.height = `${Math.max(2, (v / max) * 46)}px`;
+    const col = el('div', { className: `col${v ? '' : ' zero'}` }, bar);
+    if (h % 3 === 0) col.append(el('span', { textContent: pad(h) }));
+    const text = `${pad(h)}:00–${pad(h + 1)}:00: ${fmt(v)} totaal${pct(v)}`;
+    col.onmousemove = (e) => showTip(e, text);
+    col.onmouseleave = () => { tip.style.display = 'none'; };
+    return col;
+  })));
+  const top = st.hours.map((v, h) => [v, h]).filter(([v]) => v > 0).sort((a, b) => b[0] - a[0]).slice(0, 3).map(([, h]) => `${pad(h)}u`);
+  $('s-top').textContent = top.join(' · ') || '–';
+  renderPaceChart(s, st, 'pace-chart-stats');
+
+  if (s.unlimited) {
+    $('s-hit').textContent = $('s-proj').textContent = 'onbeperkt';
+    $('s-note').textContent = '';
+  } else if (st.hitAt === null) {
+    $('s-hit').textContent = $('s-proj').textContent = 'te weinig data';
+    $('s-note').textContent = 'Prognose volgt zodra er verbruik is gemeten.';
+  } else {
+    const over = st.hitAt < st.reset;
+    $('s-hit').textContent = over ? `${day(st.hitAt)} ${hhmm(st.hitAt)}` : 'niet voor de reset';
+    $('s-hit').style.color = over ? '#f85149' : '#3fb950';
+    $('s-proj').textContent = `${fmt(Math.round(st.projected))} (${((st.projected / s.entitlement) * 100).toFixed(0)}%)`;
+    $('s-note').textContent = 'Prognose: gemiddelde per gebruikte werkdag in de laatste 7 dagen.';
+  }
+}
+
+ipcRenderer.on('state', (_, s) => {
+  $('refresh').classList.remove('spin');
+  if (s.error) { $('err').textContent = `Fout: ${s.error}`; return; }
+  $('err').textContent = '';
+  const { used, entitlement, unlimited, events } = s;
+  quota = unlimited ? 0 : entitlement;
+
+  if (unlimited) {
+    $('big').textContent = '∞ onbeperkt';
+    $('fill').style.width = '0';
+    $('pct').textContent = '';
+  } else {
+    const p = entitlement ? (used / entitlement) * 100 : 0;
+    $('big').replaceChildren(`${fmt(used)} `, el('small', { textContent: `/ ${fmt(entitlement)}` }));
+    $('fill').style.width = `${Math.min(100, p)}%`;
+    $('fill').style.background = p < 70 ? '#3fb950' : p < 90 ? '#f0883e' : '#f85149';
+    $('pct').textContent = `${dec(p)}% van maandquota gebruikt`;
+  }
+
+  const hourSum = sum(events, Date.now() - 3600 * 1000, Infinity);
+  $('hour').textContent = unlimited || !entitlement ? fmt(hourSum) : `${fmt(hourSum)} · ${dec((hourSum / entitlement) * 100)}%`;
+
+  renderPeriods(s.stats.daily);
+  renderLanding(s, s.stats, hourSum);
+  renderStats(s, s.stats);
+  renderCalendar(s.stats.daily);
+  renderChart(events);
+  $('upd').textContent = `Bijgewerkt ${hhmm(s.updated)}`;
+});
+</script>
+</body>
+</html>

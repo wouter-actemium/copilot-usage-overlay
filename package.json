@@ -1,0 +1,22 @@
+{
+  "name": "copilot-overlay",
+  "version": "1.0.0",
+  "description": "Always-on-top overlay for GitHub Copilot premium request usage",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^44.8.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.local.copilot-overlay",
+    "productName": "Copilot Overlay",
+    "files": ["main.js", "index.html", "package.json"],
+    "win": { "target": "portable" },
+    "mac": { "target": "dmg" },
+    "linux": { "target": "AppImage" }
+  }
+}
