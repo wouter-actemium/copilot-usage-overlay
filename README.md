@@ -16,6 +16,8 @@ npm install
 npm start
 ```
 
+On Windows you can also double-click `run.cmd`, which does the same.
+
 ## Authentication
 
 By default the app uses `gh auth token`. To use a token instead, copy `.env.example` to `.env` and set `GITHUB_TOKEN`. `.env` is git-ignored; never commit it.
@@ -28,7 +30,7 @@ The SQLite database (`usage.db`) is **not** part of this repo. It is created aut
 
 GitHub does not expose historical usage to regular (non-admin) users. The API only returns your current total, so without admin rights there is no way to look up past data. The app therefore records every change it sees in `usage.db`, and history can only be built from the moments the app is running.
 
-**Recommendation:** start the app automatically at login (e.g. build the portable exe with `npm run dist` and put a shortcut to it in `shell:startup` (Win+R, type `shell:startup`)). The more it runs, the more complete your history is; usage while the app is closed is only seen as one combined change the next time it starts.
+**Recommendation:** start the app automatically at login (e.g. put a shortcut to `run.cmd` (set to "Minimized") in `shell:startup`; Win+R, type `shell:startup`). `run.cmd` is a plain batch file, so no PowerShell execution policy is involved. Alternatively build the portable exe with `npm run dist` and put a shortcut to that in the same folder. The more it runs, the more complete your history is; usage while the app is closed is only seen as one combined change the next time it starts.
 
 ## Build a distributable
 
