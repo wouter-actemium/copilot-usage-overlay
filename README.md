@@ -1,27 +1,48 @@
 # Copilot Overlay
 
-Always-on-top Tauri overlay that shows your GitHub Copilot premium request usage.
+Always-on-top Tauri overlay that shows your GitHub Copilot premium request usage, plus a small task list (pull requests, Teams messages, hour-logging reminders).
+
+## Features
+
+- Live usage with a daily budget, ideal-pace marker, hourly/weekly charts and a quota forecast
+- Statistics tab with averages, busiest hours and expected usage at reset
+- Task list from GitHub and Azure DevOps pull requests, unread Teams messages and TRM reminders; new tasks can flash until hovered
+- Collapsible, optionally transparent until hovered, with a configurable border color to make the window easy to find
+- Tray icon (show, reset position and size, exit); window position and size are remembered
+- Dutch and English UI
+
+All options are in the settings (gear icon) and are stored locally.
 
 ## Requirements
 
 - [Node.js](https://nodejs.org) 22+ and npm
 - [Rust](https://www.rust-lang.org/tools/install) and the Tauri prerequisites for your platform
-- Either the [GitHub CLI](https://cli.github.com) logged in (`gh auth login`), or a `GITHUB_TOKEN`
+- A GitHub token: `GITHUB_TOKEN`, a signed-in Copilot editor, or the [GitHub CLI](https://cli.github.com) logged in (`gh auth login`)
 
 ## Quick start
 
 ```
-git clone <repo-url>
-cd copilot_usage
+git clone https://github.com/wouter-actemium/copilot-usage-overlay.git
+cd copilot-usage-overlay
 npm install
 npm start
 ```
 
-On Windows you can also double-click `run.cmd`, which does the same.
+On Windows you can also double-click `run.cmd`.
 
-## Authentication
+## Configuration
 
-By default the app uses `gh auth token`. To use a token instead, copy `.env.example` to `.env` and set `GITHUB_TOKEN`. `.env` is git-ignored; never commit it.
+Secrets are read from environment variables or a `.env` file in the working directory. `.env` is git-ignored; never commit it.
+
+| Variable | Purpose |
+| --- | --- |
+| `GITHUB_TOKEN` | Token for the Copilot usage API (falls back to the editor's Copilot login, then `gh auth token`) |
+| `AZURE_DEVOPS_ORG_URL` | Azure DevOps organisation URL, enables the Azure DevOps pull request source |
+| `AZURE_DEVOPS_PAT` | Personal access token for Azure DevOps |
+| `AZURE_DEVOPS_PROJECTS` | Optional list of projects to limit the search to |
+| `TRM_PATH` | Optional path of the app opened by the TRM reminder |
+
+Task sources can be switched off individually in the settings.
 
 ## Data storage
 
