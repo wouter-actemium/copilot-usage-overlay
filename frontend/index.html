@@ -5,10 +5,14 @@
 <title>Copilot Overlay</title>
 <style>
   * { box-sizing: border-box; }
+  /* html must clip itself, otherwise body's overflow propagates to the viewport and the radius is ignored. */
+  html { overflow: hidden; --radius: 7px; }
+  body { border-radius: var(--radius); }
   body { margin: 0; display: flex; flex-direction: column; height: 100vh; color: #e6e8eb; font: 12px/1.4 "Segoe UI", system-ui, sans-serif; user-select: none; overflow: hidden; }
   /* A body background would propagate to the canvas and ignore body opacity. */
-  body::before { content: ''; position: fixed; inset: 0; z-index: -1; background: #14161a; }
-  body::after { content: ''; position: fixed; inset: 0; z-index: 10; pointer-events: none; border: 2px solid var(--border, transparent); box-shadow: inset 0 0 10px var(--border, transparent); }
+  body::before { content: ''; position: fixed; inset: 0; z-index: -1; border-radius: var(--radius); background: #14161a; }
+  body::after { content: ''; position: fixed; inset: 0; z-index: 10; pointer-events: none; border: 2px solid var(--border, transparent); border-radius: var(--radius); box-shadow: inset 0 0 var(--glow, 0px) var(--border, transparent); opacity: var(--border-o, .6); transition: opacity .2s; }
+  body.alerting::after { opacity: calc(var(--border-o, .6) * .35); }
   header { flex: none; display: flex; align-items: center; justify-content: space-between; padding: 8px 10px 8px 14px; background: #1b1e24; border-bottom: 1px solid #262a32; }
   header b { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: #9aa1ab; }
   .btns { display: flex; gap: 2px; }
@@ -82,7 +86,7 @@
   #err, #terr { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #err { color: #f85149; }
   #terr { color: #f0883e; }
-  #tasks { flex: none; background: #1b1e24; border-top: 1px solid #262a32; }
+  #tasks { flex: none; position: relative; z-index: 11; background: #1b1e24; border-top: 1px solid #262a32; }
   #task-list { max-height: 112px; overflow-y: auto; }
   .task { display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 10px; border-bottom: 1px solid #1f232a; }
   .task:last-child { border-bottom: 0; }
@@ -191,6 +195,8 @@
   <label class="row"><span data-i18n="set_fade">Transparant tot hover</span><input type="checkbox" id="set-fade"></label>
   <label class="row"><span data-i18n="set_idle">Zichtbaarheid in rust</span><input type="range" id="set-idle" min="20" max="90" step="5"></label>
   <label class="row"><span data-i18n="set_border">Randkleur</span><span><input type="checkbox" id="set-border-on"> <input type="color" id="set-border"></span></label>
+  <label class="row"><span data-i18n="set_glow">Gloed</span><input type="range" id="set-glow" min="0" max="24" step="2"></label>
+  <label class="row"><span data-i18n="set_bright">Helderheid rand</span><input type="range" id="set-bright" min="10" max="100" step="5"></label>
   <label class="row"><span data-i18n="set_tasks">Taken tonen</span><input type="checkbox" id="set-tasks"></label>
   <label class="row"><span data-i18n="set_alert">Nieuwe taak laten oplichten</span><input type="checkbox" id="set-alert"></label>
   <div class="sec"><span data-i18n="set_sources">Bronnen</span></div>
@@ -198,8 +204,8 @@
   <label class="row"><span data-i18n="set_trm_schedule">TRM-herinnering</span><input type="text" id="set-trm-schedule" placeholder="11:30, 15:30"></label>
   <label class="row"><span data-i18n="set_trm_hours">Werkuren</span><input type="text" id="set-trm-hours" placeholder="08:00-17:00"></label>
 </main>
-<section id="tasks" class="hidden"><div id="task-list"></div></section>
 <footer><span class="muted" id="upd"></span><span id="terr"></span><span id="err"></span></footer>
+<section id="tasks" class="hidden"><div id="task-list"></div></section>
 <div id="tip"></div>
 <script>
 const { invoke } = window.__TAURI__.core;
@@ -230,7 +236,7 @@ const I18N = {
     this_week: 'Deze week', last_week: 'Vorige week', week_of: 'Week van',
     actual: 'werkelijk', ideal: 'ideaal', forecast: 'forecast', quota: 'quota', total: 'totaal', d: 'd', h: 'u',
     set_poll: 'Ververssnelheid', set_lang: 'Taal', set_hover: 'Uitklappen bij hover',
-    set_fade: 'Transparant tot hover', set_idle: 'Zichtbaarheid in rust', set_border: 'Randkleur',
+    set_fade: 'Transparant tot hover', set_idle: 'Zichtbaarheid in rust', set_border: 'Randkleur', set_glow: 'Gloed', set_bright: 'Helderheid rand',
     set_tasks: 'Taken tonen', set_alert: 'Nieuwe taak laten oplichten',
     set_sources: 'Bronnen', src_github: 'GitHub pull requests', src_azuredevops: 'Azure DevOps pull requests', src_teams: 'Ongelezen Teams-berichten', src_trm: 'TRM-uren invullen',
     set_trm_schedule: 'TRM-herinnering (11:30, 15:30, elk uur, om de 90 min)', set_trm_hours: 'Werkuren (werkdagen)',
@@ -259,14 +265,14 @@ const I18N = {
     this_week: 'This week', last_week: 'Last week', week_of: 'Week of',
     actual: 'actual', ideal: 'ideal', forecast: 'forecast', quota: 'quota', total: 'total', d: 'd', h: 'h',
     set_poll: 'Poll rate', set_lang: 'Language', set_hover: 'Expand on hover',
-    set_fade: 'Transparent until hovered', set_idle: 'Idle visibility', set_border: 'Border color',
+    set_fade: 'Transparent until hovered', set_idle: 'Idle visibility', set_border: 'Border color', set_glow: 'Glow', set_bright: 'Border brightness',
     set_tasks: 'Show tasks', set_alert: 'Flash new tasks until hovered',
     set_sources: 'Sources', src_github: 'GitHub pull requests', src_azuredevops: 'Azure DevOps pull requests', src_teams: 'Unread Teams messages', src_trm: 'Remind to log hours in TRM',
     set_trm_schedule: 'TRM reminder (11:30, 15:30, hourly, every 90 min)', set_trm_hours: 'Working hours (weekdays)',
     set_budget: 'Daily budget based on', budget_remaining: 'Remaining workdays', budget_total: 'Total workdays',
   },
 };
-const DEFAULTS = { poll: 60, lang: 'nl', fade: false, idle: 50, borderOn: true, borderColor: '#2f81f7', collapsed: false, hoverExpand: true, budgetBasis: 'remaining', tasksEnabled: true, taskAlert: true, disabledSources: [], trmSchedule: '11:30, 15:30', trmHours: '08:00-17:00' };
+const DEFAULTS = { poll: 60, lang: 'nl', fade: false, idle: 50, borderOn: true, borderColor: '#2f81f7', borderGlow: 0, borderBrightness: 60, collapsed: false, hoverExpand: true, budgetBasis: 'remaining', tasksEnabled: true, taskAlert: true, disabledSources: [], trmSchedule: '11:30, 15:30', trmHours: '08:00-17:00' };
 const SOURCES = ['github', 'azuredevops', 'teams', 'trm'];
 const settings = { ...DEFAULTS };
 const sourceEnabled = (id) => !settings.disabledSources.includes(id);
@@ -306,6 +312,8 @@ function applyMode() {
   document.body.classList.toggle('idle', !hovering);
   document.body.style.setProperty('--idle', settings.idle / 100);
   document.body.style.setProperty('--border', settings.borderOn ? settings.borderColor : 'transparent');
+  document.body.style.setProperty('--glow', `${settings.borderGlow}px`);
+  document.body.style.setProperty('--border-o', settings.borderBrightness / 100);
   $('collapse').textContent = settings.collapsed ? '▾' : '▴';
   requestAnimationFrame(() => {
     const height = expanded ? 600 : Math.ceil($('live').scrollHeight + document.querySelector('header').offsetHeight + $('tasks').offsetHeight);
@@ -422,6 +430,8 @@ const syncControls = () => {
   $('set-idle').value = settings.idle;
   $('set-border-on').checked = settings.borderOn;
   $('set-border').value = settings.borderColor;
+  $('set-glow').value = settings.borderGlow;
+  $('set-bright').value = settings.borderBrightness;
   $('set-tasks').checked = settings.tasksEnabled;
   $('set-alert').checked = settings.taskAlert;
   $('set-trm-schedule').value = settings.trmSchedule;
@@ -446,6 +456,8 @@ $('set-fade').onchange = (e) => { settings.fade = e.target.checked; save(); appl
 $('set-idle').oninput = (e) => { settings.idle = Number(e.target.value); save(); applyMode(); };
 $('set-border-on').onchange = (e) => { settings.borderOn = e.target.checked; save(); applyMode(); };
 $('set-border').oninput = (e) => { settings.borderColor = e.target.value; save(); applyMode(); };
+$('set-glow').oninput = (e) => { settings.borderGlow = Number(e.target.value); save(); applyMode(); };
+$('set-bright').oninput = (e) => { settings.borderBrightness = Number(e.target.value); save(); applyMode(); };
 $('set-tasks').onchange = (e) => {
   settings.tasksEnabled = e.target.checked;
   save();
